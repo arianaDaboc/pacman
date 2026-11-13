@@ -1,0 +1,19 @@
+[project]
+name = "pacman"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "ariana", email = "arianadaboc@yahoo.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pygame>=2.6.1",
+]
+
+[project.scripts]
+pacman = "pacman.main:main"
+
+[build-system]
+requires = ["uv_build>=0.12.21,<0.13.0"]
+build-backend = "uv_build"
