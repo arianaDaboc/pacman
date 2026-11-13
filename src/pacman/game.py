@@ -6,7 +6,15 @@ import pygame
 
 from pacman import config
 from pacman.model.maze import Maze
+from pacman.model.pacman import PacMan
 from pacman.view.maze_view import MazeView
+
+ARROWS = {
+    pygame.K_UP: "up",
+    pygame.K_LEFT: "left",
+    pygame.K_DOWN: "down",
+    pygame.K_RIGHT: "right",
+}
 
 
 class Game:
@@ -22,6 +30,7 @@ class Game:
         pygame.display.set_caption(config.TITLE)
         self.clock = pygame.time.Clock()
         self.maze_view = MazeView(self.maze)
+        self.pacman = PacMan(self.maze, self.maze.pacman_start)
         self.running = True
 
     def handle_events(self) -> None:
@@ -29,14 +38,23 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.KEYDOWN and event.key in ARROWS:
+                self.pacman.turn(ARROWS[event.key])
 
     def update(self, dt: float) -> None:
-        """Advance the game model by dt seconds. Empty until the agents move."""
+        """Advance the game model by dt seconds."""
+        self.pacman.update(dt)
 
     def draw(self) -> None:
         """Draw one frame: background, then the maze."""
         self.screen.fill(config.BACKGROUND_COLOUR)
         self.maze_view.draw(self.screen)
+        half = config.TILE_SIZE / 2
+        center = (
+            round(self.maze_view.origin[0] + (self.pacman.x + 0.5) * config.TILE_SIZE),
+            round(self.maze_view.origin[1] + (self.pacman.y + 0.5) * config.TILE_SIZE),
+        )
+        pygame.draw.circle(self.screen, (255, 255, 0), center, int(half) - 2)
         pygame.display.flip()
 
     def run(self) -> None:

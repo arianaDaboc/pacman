@@ -51,3 +51,6 @@ BACKGROUND_COLOUR = (0, 0, 0)
 WALL_COLOUR = (33, 33, 222)
 DOOR_COLOUR = (255, 184, 222)
 DOT_COLOUR = (255, 184, 151)
+
+# --- Movement ---
+PACMAN_SPEED = 7.6  # tiles per second, as in the original game
