@@ -1,18 +1,27 @@
 """The game loop. Pygame is used only here and in the view package."""
 
+from pathlib import Path
+
 import pygame
 
 from pacman import config
+from pacman.model.maze import Maze
+from pacman.view.maze_view import MazeView
 
 
 class Game:
     """Owns the window and runs the loop at a fixed frame rate."""
 
-    def __init__(self) -> None:
+    def __init__(self, map_path: Path = config.MAP_PATH) -> None:
+        """Load the map, then open the window. Raises MapError if the map is invalid."""
+        # The map is loaded before pygame starts, so an invalid map stops the
+        # program with a clear message instead of flashing an empty window.
+        self.maze = Maze.load(map_path)
         pygame.init()
         self.screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
         pygame.display.set_caption(config.TITLE)
         self.clock = pygame.time.Clock()
+        self.maze_view = MazeView(self.maze)
         self.running = True
 
     def handle_events(self) -> None:
@@ -22,11 +31,12 @@ class Game:
                 self.running = False
 
     def update(self, dt: float) -> None:
-        """Advance the game model by dt seconds. Empty until US1.1."""
+        """Advance the game model by dt seconds. Empty until the agents move."""
 
     def draw(self) -> None:
-        """Draw one frame. Empty until US1.1."""
-        self.screen.fill((0, 0, 0))
+        """Draw one frame: background, then the maze."""
+        self.screen.fill(config.BACKGROUND_COLOUR)
+        self.maze_view.draw(self.screen)
         pygame.display.flip()
 
     def run(self) -> None:
