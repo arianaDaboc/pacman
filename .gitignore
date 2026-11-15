@@ -8,3 +8,7 @@ docs/*.toc
 docs/*.bbl
 docs/*.bcf
 docs/*.run.xml
+docs/*.blg
+docs/*.fls
+docs/*.fdb_latexmk
+docs/_minted*/

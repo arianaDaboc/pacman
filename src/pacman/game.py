@@ -25,12 +25,16 @@ NEW_GAME_KEYS = (pygame.K_RETURN, pygame.K_SPACE)
 class Game:
     """Owns the window and runs the loop at a fixed frame rate."""
 
-    def __init__(self, map_path: Path = config.MAP_PATH) -> None:
-        """Load the map, then open the window. Raises MapError if the map is invalid."""
+    def __init__(self, map_path: Path = config.MAP_PATH, full_validation: bool = True) -> None:
+        """Load the map, then open the window. Raises MapError if the map is invalid.
+
+        full_validation=False is for small test maps: only the file format is checked.
+        """
         # The map is loaded before pygame starts, so an invalid map stops the
         # program with a clear message instead of flashing an empty window.
         self.map_path = map_path
-        maze = Maze.load(map_path)
+        self.full_validation = full_validation
+        maze = Maze.load(map_path, full_validation)
         pygame.init()
         self.screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
         pygame.display.set_caption(config.TITLE)
@@ -46,7 +50,7 @@ class Game:
 
     def new_game(self, maze: Maze | None = None) -> None:
         """Start a new game: all dots back, Pac-Man at the start, score 0, full lives."""
-        self.maze = maze if maze is not None else Maze.load(self.map_path)
+        self.maze = maze if maze is not None else Maze.load(self.map_path, self.full_validation)
         self.maze_view = MazeView(self.maze)
         self.pacman = PacMan(self.maze, self.maze.pacman_start)
         self.pacman_view = PacManView(self.maze_view)
