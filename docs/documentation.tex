@@ -1,0 +1,162 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{tgschola}
+\usepackage[scaled=0.94]{helvet}
+\renewcommand{\familydefault}{\rmdefault}
+\usepackage[a4paper,margin=2.5cm,headheight=15pt]{geometry}
+\usepackage{xcolor,graphicx,float,booktabs,tabularx,array,enumitem,fancyhdr,titlesec,tocloft,pdflscape}
+\usepackage[most]{tcolorbox}
+\usepackage{csquotes,xurl,hyperref,cleveref}
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{documentation.bib}
+
+\definecolor{PacBlue}{HTML}{1F3A5F}
+\definecolor{SoftGray}{HTML}{F5F6F8}
+\hypersetup{colorlinks=true,linkcolor=PacBlue,citecolor=PacBlue,urlcolor=PacBlue,
+  pdftitle={Pac-Man AI -- Sprint 1 Documentation},pdfauthor={Pac-Man AI Team}}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textsf{Pac-Man AI}}
+\rhead{\textsf{Sprint 1 Documentation}}
+\cfoot{\thepage}
+\setlist[itemize]{leftmargin=1.5em,itemsep=0.2em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlength{\emergencystretch}{3em}
+\titleformat{\section}{\Large\bfseries\sffamily\color{PacBlue}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\sffamily\color{PacBlue}}{\thesubsection}{0.7em}{}
+\newtcolorbox{note}{colback=SoftGray,colframe=PacBlue,boxrule=0.5pt,arc=2pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt}
+
+\begin{document}
+
+\pagenumbering{gobble}
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+  \centering
+  \IfFileExists{images/utcn-logo.jpg}{\includegraphics[height=1.4cm]{images/utcn-logo.jpg}\par}{}
+  {\Large\sffamily Technical University of Cluj-Napoca\par}
+  \vspace{0.2cm}{\large Artificial Intelligence\par}
+  \vspace{1.7cm}
+  \IfFileExists{images/cover.png}{\includegraphics[width=0.62\linewidth]{images/cover.png}\par}{}
+  \vspace{1cm}{\Huge\bfseries\color{PacBlue} Pac-Man AI\par}
+  \vspace{0.4cm}{\Large Project Documentation -- Sprint 1\par}
+  \vspace{0.8cm}{\large A maze chase you can play by hand\par}
+  \vfill
+  {\large Ariana Daboc, Roxana Marginean, Diana Sighiartau\par}
+  \vspace{0.5cm}Repository: \url{https://github.com/arianaDaboc/pacman}\par
+  \vspace{0.3cm}\today
+\end{titlepage}
+
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+\section{Project Theme}
+\label{sec:theme}
+
+We wanted to make a small Pac-Man game that feels familiar without getting stuck on reproducing every detail of the arcade original. The player guides Pac-Man through a maze, collects dots and energizers, and tries to clear the board. The maze uses bright blue walls on a black background, with a pixel-style font and sprites to keep the arcade look.
+
+The main focus of this sprint was getting the game running end to end: loading a map, moving Pac-Man, updating the score, and showing the result on screen. The current game is played with the keyboard. The ghost sprites and the AI-related interfaces are groundwork for later work; there are no moving ghosts or autonomous agents in this version.
+
+Our sprite assets come from drakzlin's free \enquote{20x20 Tileset}; the Press Start 2P font is by CodeMan38. The project keeps a file-by-file source and licence list in \texttt{assets/ASSETS.md}. The sound effects were generated for this project with a small script.\cite{drakzlin2014tileset,pressstart2p}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.62\linewidth]{images/gameplay.png}
+  \caption{The game view.}
+  \label{fig:gameplay}
+\end{figure}
+
+\section{Architecture}
+\label{sec:architecture}
+
+The class diagram shows the pieces we added around the game loop. \texttt{Score} owns the points and the dot counter, so the fruit thresholds are kept with the scoring logic instead of scattered through the loop. We split drawing and audio into \texttt{MazeView}, \texttt{PacManView} and \texttt{Sounds}; each can change without making the game rules harder to follow. The maze and movement code stay independent of Pygame, which will let later search code use them without opening a window. The \texttt{PathFinder} and \texttt{PacManController} interfaces are in place, but their AI implementations come in later sprints.
+
+\clearpage
+\begin{landscape}
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=0.96\linewidth,height=0.78\textheight,keepaspectratio]{images/class-diagram.png}
+    \caption{Class diagram of the current code.}
+    \label{fig:classes}
+  \end{figure}
+\end{landscape}
+
+\section{Maps}
+\label{sec:maps}
+
+The maze in \texttt{maps/classic.txt} is our own 28-by-36 layout. We kept it symmetric from left to right so both sides feel equally playable. The four energizers sit near the corners, which gives the player a reason to plan a route through the outer corridors. A tunnel crosses the middle row and the ghost house anchors the centre of the board. The map has 307 dots, enough for the fruit to appear at both scoring thresholds, and its corridors connect back into the main loop instead of ending in dead ends.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.48\linewidth]{images/map-default.png}
+  \caption{The default maze.}
+  \label{fig:map}
+\end{figure}
+
+\setcounter{section}{5}
+\section{User Guide}
+\label{sec:guide}
+
+Install \texttt{uv} using its official instructions, then clone the repository and start the game. \texttt{uv sync} installs the project dependencies; the project requires Python 3.12 and Pygame.\cite{uv,pygame}
+
+\begin{verbatim}
+git clone https://github.com/arianaDaboc/pacman.git
+cd pacman
+uv sync
+uv run pacman
+\end{verbatim}
+
+The game opens on a start screen. Press Enter or Space to begin. Use the arrow keys to steer Pac-Man; a requested turn is taken at the next tile centre where the direction is open. He stops at walls and can travel through the horizontal warp tunnel. Press M to mute or unmute the sound. Closing the window quits the game.
+
+\begin{table}[H]
+  \centering
+  \caption{Controls in the current manual mode.}
+  \begin{tabular}{@{}ll@{}}
+    \toprule
+    \textbf{Key} & \textbf{Action} \\
+    \midrule
+    Enter or Space & Start the game; start a new game after a win \\
+    Arrow keys & Steer Pac-Man \\
+    M & Mute or unmute the sound \\
+    Close window & Quit \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A dot is worth 10 points and an energizer is worth 50. The fruit appears after 70 and 170 dots have been eaten, stays for nine seconds, and is worth 100 points. Once all dots and energizers are gone, the game shows the final score. There is no control panel in this sprint; the ghosts and AI options are planned for later work.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.42\linewidth]{images/start-screen.png}
+  \caption{The start screen.}
+  \label{fig:start}
+\end{figure}
+
+\section{Team}
+\label{sec:team}
+
+\begin{table}[H]
+  \centering
+  \caption{Main Sprint 1 contributions.}
+  \begin{tabularx}{\textwidth}{@{}l X l@{}}
+    \toprule
+    \textbf{Member} & \textbf{Main contribution} & \textbf{Stories} \\
+    \midrule
+    Ariana Daboc & Project skeleton, map loading, README and documentation & US1.0, US1.1, US1.6 \\
+    Roxana Marginean & Pac-Man movement and animation, start screen and sound & US1.2, US1.5 \\
+    Diana Sighiartau & Asset pack and theme, dots, fruit, score and win screen & US1.3, US1.4 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\newpage
+\nocite{pygame,uv}
+\printbibliography[heading=bibintoc,title={References}]
+
+\end{document}
