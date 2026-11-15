@@ -9,6 +9,7 @@ from pacman.model.maze import Maze
 from pacman.model.pacman import PacMan
 from pacman.model.score import Score
 from pacman.view.maze_view import MazeView
+from pacman.view.pacman_view import PacManView
 
 ARROWS = {
     pygame.K_UP: "up",
@@ -45,6 +46,7 @@ class Game:
         self.maze = maze if maze is not None else Maze.load(self.map_path)
         self.maze_view = MazeView(self.maze)
         self.pacman = PacMan(self.maze, self.maze.pacman_start)
+        self.pacman_view = PacManView(self.maze_view)
         self.score = Score()
         self.lives = config.LIVES
         self.fruit_timer = 0.0  # seconds the fruit stays in the maze; 0 means no fruit
@@ -66,6 +68,7 @@ class Game:
         if self.won:
             return
         self.pacman.update(dt)
+        self.pacman_view.update(self.pacman, dt)
         self.eat()
         if self.fruit_timer > 0:
             self.fruit_timer = max(0.0, self.fruit_timer - dt)
@@ -94,12 +97,7 @@ class Game:
         if self.fruit_timer > 0 and self.maze.fruit is not None:
             centre = self.maze_view.tile_centre(self.maze.fruit)
             self.screen.blit(self.fruit_image, self.fruit_image.get_rect(center=centre))
-        half = config.TILE_SIZE / 2
-        center = (
-            round(self.maze_view.origin[0] + (self.pacman.x + 0.5) * config.TILE_SIZE),
-            round(self.maze_view.origin[1] + (self.pacman.y + 0.5) * config.TILE_SIZE),
-        )
-        pygame.draw.circle(self.screen, (255, 255, 0), center, int(half) - 2)
+        self.pacman_view.draw(self.screen, self.pacman)
         self.draw_panel()
         if self.won:
             self.draw_win_screen()
