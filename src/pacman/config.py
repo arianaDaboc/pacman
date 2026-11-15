@@ -73,7 +73,12 @@ FONT_SIZE = 16
 TEXT_COLOUR = (255, 255, 255)
 WIN_OVERLAY = (0, 0, 0, 200)  # black, mostly opaque, drawn over the maze when the game is won
 
-# --- Pac-Man sprite animation ---
+# --- Sprites ---
 SPRITES_DIR = ASSETS_DIR / "sprites"
 PACMAN_FRAMES = 4  # pacman_<direction>_0.png ... _3.png
 PACMAN_ANIMATION_FPS = 12  # mouth frames per second
+
+# --- Start screen and sound ---
+GAME_TITLE = "PAC-MAN AI"  # shown on the start screen: put the name of your theme here
+SOUNDS_DIR = ASSETS_DIR / "sounds"
+SOUND_NAMES = ("dot", "energizer", "fruit", "win", "lose")

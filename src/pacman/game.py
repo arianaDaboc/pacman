@@ -10,6 +10,7 @@ from pacman.model.pacman import PacMan
 from pacman.model.score import Score
 from pacman.view.maze_view import MazeView
 from pacman.view.pacman_view import PacManView
+from pacman.view.sound import Sounds
 
 ARROWS = {
     pygame.K_UP: "up",
@@ -38,6 +39,8 @@ class Game:
         self.big_font = pygame.font.Font(config.FONT_PATH, config.FONT_SIZE * 2)
         fruit = pygame.image.load(config.FRUIT_SPRITE).convert_alpha()
         self.fruit_image = pygame.transform.scale(fruit, (config.TILE_SIZE, config.TILE_SIZE))
+        self.sounds = Sounds()
+        self.started = False  # the start screen is shown until Enter or Space is pressed
         self.running = True
         self.new_game(maze)
 
@@ -58,14 +61,19 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
-                if self.won and event.key in NEW_GAME_KEYS:
+                if event.key == pygame.K_m:
+                    self.sounds.toggle_mute()
+                elif not self.started:
+                    if event.key in NEW_GAME_KEYS:
+                        self.started = True
+                elif self.won and event.key in NEW_GAME_KEYS:
                     self.new_game()
                 elif not self.won and event.key in ARROWS:
                     self.pacman.turn(ARROWS[event.key])
 
     def update(self, dt: float) -> None:
         """Advance the game model by dt seconds."""
-        if self.won:
+        if not self.started or self.won:
             return
         self.pacman.update(dt)
         self.pacman_view.update(self.pacman, dt)
@@ -74,6 +82,7 @@ class Game:
             self.fruit_timer = max(0.0, self.fruit_timer - dt)
         if not self.maze.dots and not self.maze.energizers:
             self.won = True
+            self.sounds.play("win")
 
     def eat(self) -> None:
         """Eat what is on Pac-Man's tile: a dot, an energizer or the fruit."""
@@ -81,18 +90,25 @@ class Game:
         if tile in self.maze.dots:
             self.maze.dots.remove(tile)
             self.score.eat_dot()
+            self.sounds.play("dot")
             if self.score.fruit_due():
                 self.fruit_timer = config.FRUIT_SECONDS
         elif tile in self.maze.energizers:
             self.maze.energizers.remove(tile)
             self.score.eat_energizer()
+            self.sounds.play("energizer")
         if self.fruit_timer > 0 and tile == self.maze.fruit:
             self.score.eat_fruit()
+            self.sounds.play("fruit")
             self.fruit_timer = 0.0
 
     def draw(self) -> None:
-        """Draw one frame: background, maze, fruit, Pac-Man, the panel and maybe the win screen."""
+        """Draw one frame: the start screen, or the maze, fruit, Pac-Man, the panel and maybe the win screen."""
         self.screen.fill(config.BACKGROUND_COLOUR)
+        if not self.started:
+            self.draw_start_screen()
+            pygame.display.flip()
+            return
         self.maze_view.draw(self.screen)
         if self.fruit_timer > 0 and self.maze.fruit is not None:
             centre = self.maze_view.tile_centre(self.maze.fruit)
@@ -113,6 +129,23 @@ class Game:
         lives = self.font.render(f"LIVES {self.lives}", True, config.TEXT_COLOUR)
         self.screen.blit(score, (left, y))
         self.screen.blit(lives, (right - lives.get_width(), y))
+        if self.sounds.muted:
+            muted = self.font.render("MUTED", True, config.TEXT_COLOUR)
+            self.screen.blit(muted, muted.get_rect(midtop=((left + right) // 2, y)))
+
+    def draw_start_screen(self) -> None:
+        """The title of the game, a big Pac-Man and the keys."""
+        centre_x = config.SCREEN_WIDTH // 2
+        title = self.big_font.render(config.GAME_TITLE, True, config.TEXT_COLOUR)
+        self.screen.blit(title, title.get_rect(center=(centre_x, config.SCREEN_HEIGHT // 3)))
+        size = 4 * config.TILE_SIZE
+        sprite = pygame.transform.scale(self.pacman_view.frames["right"][1], (size, size))
+        self.screen.blit(sprite, sprite.get_rect(center=(centre_x, config.SCREEN_HEIGHT // 2)))
+        y = 2 * config.SCREEN_HEIGHT // 3
+        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE"):
+            image = self.font.render(text, True, config.TEXT_COLOUR)
+            self.screen.blit(image, image.get_rect(midtop=(centre_x, y)))
+            y += image.get_height() * 2
 
     def draw_win_screen(self) -> None:
         """Darken the maze and show the final score and how to start again."""
