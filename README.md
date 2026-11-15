@@ -1,7 +1,6 @@
 # Pac-Man AI
 
-A Pac-Man game in Python with Pygame, built for the Artificial Intelligence course at the
-Technical University of Cluj-Napoca. In this version you play Pac-Man yourself (manual mode).
+In this version you play Pac-Man yourself (manual mode).
 The ghosts, which hunt Pac-Man with search algorithms, arrive in Sprint 2, and an autonomous
 Pac-Man driven by AI agents arrives in Sprint 3.
 
