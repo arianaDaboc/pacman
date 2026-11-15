@@ -54,3 +54,21 @@ DOT_COLOUR = (255, 184, 151)
 
 # --- Movement ---
 PACMAN_SPEED = 7.6  # tiles per second, as in the original game
+
+# --- Score and lives (Table 7) ---
+DOT_POINTS = 10
+ENERGIZER_POINTS = 50
+GHOST_POINTS = (200, 400, 800, 1600)  # 1st, 2nd, 3rd, 4th ghost eaten with one energizer
+FRUIT_POINTS = 100
+CAUGHT_POINTS = -500
+FRUIT_AFTER_DOTS = (70, 170)  # the fruit appears after this many dots have been eaten
+FRUIT_SECONDS = 9.0  # how long the fruit stays in the maze
+LIVES = 3
+
+# --- Assets and text ---
+ASSETS_DIR = ROOT_DIR / "assets"
+FONT_PATH = ASSETS_DIR / "fonts" / "PressStart2P-Regular.ttf"
+FRUIT_SPRITE = ASSETS_DIR / "sprites" / "fruit.png"
+FONT_SIZE = 16
+TEXT_COLOUR = (255, 255, 255)
+WIN_OVERLAY = (0, 0, 0, 200)  # black, mostly opaque, drawn over the maze when the game is won
