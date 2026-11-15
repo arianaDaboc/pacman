@@ -72,3 +72,8 @@ FRUIT_SPRITE = ASSETS_DIR / "sprites" / "fruit.png"
 FONT_SIZE = 16
 TEXT_COLOUR = (255, 255, 255)
 WIN_OVERLAY = (0, 0, 0, 200)  # black, mostly opaque, drawn over the maze when the game is won
+
+# --- Pac-Man sprite animation ---
+SPRITES_DIR = ASSETS_DIR / "sprites"
+PACMAN_FRAMES = 4  # pacman_<direction>_0.png ... _3.png
+PACMAN_ANIMATION_FPS = 12  # mouth frames per second
