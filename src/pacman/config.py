@@ -82,3 +82,9 @@ PACMAN_ANIMATION_FPS = 12  # mouth frames per second
 GAME_TITLE = "PAC-MAN AI"  # shown on the start screen: put the name of your theme here
 SOUNDS_DIR = ASSETS_DIR / "sounds"
 SOUND_NAMES = ("dot", "energizer", "fruit", "win", "lose")
+
+# --- Ghosts ---
+GHOST_SPEED = 7.1  # tiles per second
+GHOST_NAMES = ("blinky", "pinky", "inky", "clyde")
+GHOST_RELEASE_DOTS = (0, 0, 30, 60)  # Blinky starts outside; Pinky, Inky, Clyde leave after 0, 30, 60 dots
+GHOST_SPRITES = {"blinky": "red", "pinky": "pink", "inky": "green", "clyde": "orange"}

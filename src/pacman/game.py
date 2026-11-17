@@ -1,13 +1,16 @@
 """The game loop. Pygame is used only here and in the view package."""
 
+import random
 from pathlib import Path
 
 import pygame
 
 from pacman import config
+from pacman.model.ghost import Ghost
 from pacman.model.maze import Maze
 from pacman.model.pacman import PacMan
 from pacman.model.score import Score
+from pacman.view.ghost_view import GhostView
 from pacman.view.maze_view import MazeView
 from pacman.view.pacman_view import PacManView
 from pacman.view.sound import Sounds
@@ -58,6 +61,13 @@ class Game:
         self.lives = config.LIVES
         self.fruit_timer = 0.0  # seconds the fruit stays in the maze; 0 means no fruit
         self.won = False
+        rng = random.Random()
+        self.ghosts = [
+            Ghost(self.maze, name, start, dots, rng)
+            for name, start, dots in zip(config.GHOST_NAMES, self.maze.ghost_starts, config.GHOST_RELEASE_DOTS)
+        ]
+        self.ghost_view = GhostView(self.maze_view)
+        self.game_over = False
 
     def handle_events(self) -> None:
         """Process the window events. Closing the window stops the loop."""
@@ -70,14 +80,14 @@ class Game:
                 elif not self.started:
                     if event.key in NEW_GAME_KEYS:
                         self.started = True
-                elif self.won and event.key in NEW_GAME_KEYS:
+                elif (self.won or self.game_over) and event.key in NEW_GAME_KEYS:
                     self.new_game()
-                elif not self.won and event.key in ARROWS:
+                elif not (self.won or self.game_over) and event.key in ARROWS:
                     self.pacman.turn(ARROWS[event.key])
 
     def update(self, dt: float) -> None:
         """Advance the game model by dt seconds."""
-        if not self.started or self.won:
+        if not self.started or self.won or self.game_over:
             return
         self.pacman.update(dt)
         self.pacman_view.update(self.pacman, dt)
@@ -87,6 +97,25 @@ class Game:
         if not self.maze.dots and not self.maze.energizers:
             self.won = True
             self.sounds.play("win")
+            return
+        for ghost in self.ghosts:
+            ghost.update(dt, self.score.dots_eaten)
+        self.check_caught()
+
+    def check_caught(self) -> None:
+        """A ghost on Pac-Man's tile catches him: -500 points, one life less, everybody back to the start."""
+        pacman_tile = (round(self.pacman.x) % self.maze.width, round(self.pacman.y))
+        if not any(ghost.tile == pacman_tile for ghost in self.ghosts):
+            return
+        self.score.caught()
+        self.lives -= 1
+        if self.lives == 0:
+            self.game_over = True
+            self.sounds.play("lose")
+            return
+        self.pacman = PacMan(self.maze, self.maze.pacman_start)  # the dots already eaten stay eaten
+        for ghost in self.ghosts:
+            ghost.reset()
 
     def eat(self) -> None:
         """Eat what is on Pac-Man's tile: a dot, an energizer or the fruit."""
@@ -107,7 +136,7 @@ class Game:
             self.fruit_timer = 0.0
 
     def draw(self) -> None:
-        """Draw one frame: the start screen, or the maze, fruit, Pac-Man, the panel and maybe the win screen."""
+        """Draw one frame: the start screen, or the maze, fruit, Pac-Man, the ghosts, the panel and maybe the end screen."""
         self.screen.fill(config.BACKGROUND_COLOUR)
         if not self.started:
             self.draw_start_screen()
@@ -118,9 +147,12 @@ class Game:
             centre = self.maze_view.tile_centre(self.maze.fruit)
             self.screen.blit(self.fruit_image, self.fruit_image.get_rect(center=centre))
         self.pacman_view.draw(self.screen, self.pacman)
+        self.ghost_view.draw(self.screen, self.ghosts)
         self.draw_panel()
         if self.won:
-            self.draw_win_screen()
+            self.draw_end_screen("YOU WIN!")
+        elif self.game_over:
+            self.draw_end_screen("GAME OVER")
         pygame.display.flip()
 
     def draw_panel(self) -> None:
@@ -151,13 +183,13 @@ class Game:
             self.screen.blit(image, image.get_rect(midtop=(centre_x, y)))
             y += image.get_height() * 2
 
-    def draw_win_screen(self) -> None:
-        """Darken the maze and show the final score and how to start again."""
+    def draw_end_screen(self, title: str) -> None:
+        """Darken the maze and show the result, the final score and how to start again."""
         overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         overlay.fill(config.WIN_OVERLAY)
         self.screen.blit(overlay, (0, 0))
         lines = [
-            (self.big_font, "YOU WIN!"),
+            (self.big_font, title),
             (self.font, f"FINAL SCORE {self.score.points}"),
             (self.font, "PRESS ENTER FOR A NEW GAME"),
         ]
