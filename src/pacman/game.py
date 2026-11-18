@@ -10,6 +10,7 @@ from pacman.model.ghost import Ghost
 from pacman.model.maze import Maze
 from pacman.model.pacman import PacMan
 from pacman.model.score import Score
+from pacman.search.astar import AStar
 from pacman.search.bfs import BFS
 from pacman.search.dfs import DFS
 from pacman.view.ghost_view import GhostView
@@ -52,7 +53,7 @@ class Game:
         fruit = pygame.image.load(config.FRUIT_SPRITE).convert_alpha()
         self.fruit_image = pygame.transform.scale(fruit, (config.TILE_SIZE, config.TILE_SIZE))
         self.sounds = Sounds()
-        self.finders = [DFS(), BFS()]  # the search algorithms the ghosts can use
+        self.finders = [DFS(), BFS(), AStar()]  # the search algorithms the ghosts can use
         self.finder = self.finders[1]  # BFS until the player chooses another one
         self.started = False  # the start screen is shown until Enter or Space is pressed
         self.running = True
@@ -198,7 +199,7 @@ class Game:
         sprite = pygame.transform.scale(self.pacman_view.frames["right"][1], (size, size))
         self.screen.blit(sprite, sprite.get_rect(center=(centre_x, config.SCREEN_HEIGHT // 2)))
         y = 2 * config.SCREEN_HEIGHT // 3
-        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE", "1: DFS   2: BFS"):
+        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE", "1: DFS   2: BFS   3: A*"):
             image = self.font.render(text, True, config.TEXT_COLOUR)
             self.screen.blit(image, image.get_rect(midtop=(centre_x, y)))
             y += image.get_height() * 2
