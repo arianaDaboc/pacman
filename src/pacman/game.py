@@ -10,6 +10,8 @@ from pacman.model.ghost import Ghost
 from pacman.model.maze import Maze
 from pacman.model.pacman import PacMan
 from pacman.model.score import Score
+from pacman.search.bfs import BFS
+from pacman.search.dfs import DFS
 from pacman.view.ghost_view import GhostView
 from pacman.view.maze_view import MazeView
 from pacman.view.pacman_view import PacManView
@@ -23,6 +25,9 @@ ARROWS = {
 }
 
 NEW_GAME_KEYS = (pygame.K_RETURN, pygame.K_SPACE)
+
+# The number keys choose the ghosts' search algorithm, in the order of Game.finders.
+FINDER_KEYS = (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4)
 
 
 class Game:
@@ -47,6 +52,8 @@ class Game:
         fruit = pygame.image.load(config.FRUIT_SPRITE).convert_alpha()
         self.fruit_image = pygame.transform.scale(fruit, (config.TILE_SIZE, config.TILE_SIZE))
         self.sounds = Sounds()
+        self.finders = [DFS(), BFS()]  # the search algorithms the ghosts can use
+        self.finder = self.finders[1]  # BFS until the player chooses another one
         self.started = False  # the start screen is shown until Enter or Space is pressed
         self.running = True
         self.new_game(maze)
@@ -66,6 +73,8 @@ class Game:
             Ghost(self.maze, name, start, dots, rng)
             for name, start, dots in zip(config.GHOST_NAMES, self.maze.ghost_starts, config.GHOST_RELEASE_DOTS)
         ]
+        for ghost in self.ghosts:
+            ghost.finder = self.finder
         self.ghost_view = GhostView(self.maze_view)
         self.game_over = False
 
@@ -77,6 +86,8 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_m:
                     self.sounds.toggle_mute()
+                elif event.key in FINDER_KEYS[: len(self.finders)]:
+                    self.set_finder(self.finders[FINDER_KEYS.index(event.key)])
                 elif not self.started:
                     if event.key in NEW_GAME_KEYS:
                         self.started = True
@@ -84,6 +95,13 @@ class Game:
                     self.new_game()
                 elif not (self.won or self.game_over) and event.key in ARROWS:
                     self.pacman.turn(ARROWS[event.key])
+
+    def set_finder(self, finder) -> None:
+        """Give every ghost the chosen search algorithm; the paths are searched again at the next tile."""
+        self.finder = finder
+        for ghost in self.ghosts:
+            ghost.finder = finder
+            ghost.path = []
 
     def update(self, dt: float) -> None:
         """Advance the game model by dt seconds."""
@@ -98,7 +116,9 @@ class Game:
             self.won = True
             self.sounds.play("win")
             return
+        pacman_tile = (round(self.pacman.x) % self.maze.width, round(self.pacman.y))
         for ghost in self.ghosts:
+            ghost.target = pacman_tile  # until US2.4, every ghost hunts Pac-Man's tile
             ghost.update(dt, self.score.dots_eaten)
         self.check_caught()
 
@@ -165,9 +185,9 @@ class Game:
         lives = self.font.render(f"LIVES {self.lives}", True, config.TEXT_COLOUR)
         self.screen.blit(score, (left, y))
         self.screen.blit(lives, (right - lives.get_width(), y))
-        if self.sounds.muted:
-            muted = self.font.render("MUTED", True, config.TEXT_COLOUR)
-            self.screen.blit(muted, muted.get_rect(midtop=((left + right) // 2, y)))
+        middle = self.finder.name + (" MUTED" if self.sounds.muted else "")
+        image = self.font.render(middle, True, config.TEXT_COLOUR)
+        self.screen.blit(image, image.get_rect(midtop=((left + right) // 2, y)))
 
     def draw_start_screen(self) -> None:
         """The title of the game, a big Pac-Man and the keys."""
@@ -178,7 +198,7 @@ class Game:
         sprite = pygame.transform.scale(self.pacman_view.frames["right"][1], (size, size))
         self.screen.blit(sprite, sprite.get_rect(center=(centre_x, config.SCREEN_HEIGHT // 2)))
         y = 2 * config.SCREEN_HEIGHT // 3
-        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE"):
+        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE", "1: DFS   2: BFS"):
             image = self.font.render(text, True, config.TEXT_COLOUR)
             self.screen.blit(image, image.get_rect(midtop=(centre_x, y)))
             y += image.get_height() * 2
