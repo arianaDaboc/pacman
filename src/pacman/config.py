@@ -88,3 +88,17 @@ GHOST_SPEED = 7.1  # tiles per second
 GHOST_NAMES = ("blinky", "pinky", "inky", "clyde")
 GHOST_RELEASE_DOTS = (0, 0, 30, 60)  # Blinky starts outside; Pinky, Inky, Clyde leave after 0, 30, 60 dots
 GHOST_SPRITES = {"blinky": "red", "pinky": "pink", "inky": "green", "clyde": "orange"}
+
+# --- Ghost personalities (Table 8) ---
+PINKY_AHEAD = 4  # Pinky hunts this many tiles in front of Pac-Man
+INKY_AHEAD = 2  # Inky's pivot is this many tiles in front of Pac-Man
+CLYDE_RADIUS = 8  # Clyde goes to his corner when he is closer than this to Pac-Man (in tiles)
+
+# --- Overlay (shows where the ghosts are heading) ---
+GHOST_COLOURS = {  # the colours of the sprites, used to draw each ghost's target
+    "blinky": (255, 40, 40),
+    "pinky": (255, 120, 255),
+    "inky": (60, 220, 60),
+    "clyde": (255, 170, 40),
+}
+OVERLAY_WIDTH = 2  # line thickness in pixels
