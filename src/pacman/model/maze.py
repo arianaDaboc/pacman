@@ -215,12 +215,12 @@ class Maze:
         if len(self.dots) < config.MIN_DOTS:
             raise self._error(f"has {len(self.dots)} dots, at least {config.MIN_DOTS} are needed")
 
-        # 5. The maze and the control panel fit on the screen.
-        width_px = self.width * config.TILE_SIZE
+        # 5. The maze fits on the screen, with the control panel on its right and the score under it.
+        width_px = self.width * config.TILE_SIZE + config.PANEL_WIDTH
         height_px = self.height * config.TILE_SIZE + config.HUD_HEIGHT
         if width_px > config.SCREEN_WIDTH or height_px > config.SCREEN_HEIGHT:
             raise self._error(
-                f"is {self.width} x {self.height} tiles = {width_px} x {height_px} px with the panel, "
+                f"is {self.width} x {self.height} tiles = {width_px} x {height_px} px with the panels, "
                 f"but the screen is {config.SCREEN_WIDTH} x {config.SCREEN_HEIGHT} px"
             )
 
