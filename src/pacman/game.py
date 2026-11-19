@@ -9,12 +9,15 @@ from pacman import config
 from pacman.model.ghost import Ghost
 from pacman.model.maze import Maze
 from pacman.model.pacman import PacMan
+from pacman.model.personality import PERSONALITIES
 from pacman.model.score import Score
 from pacman.search.astar import AStar
 from pacman.search.bfs import BFS
 from pacman.search.dfs import DFS
+from pacman.search.path_finder import closest_walkable
 from pacman.view.ghost_view import GhostView
 from pacman.view.maze_view import MazeView
+from pacman.view.overlay import Overlay
 from pacman.view.pacman_view import PacManView
 from pacman.view.sound import Sounds
 
@@ -71,12 +74,17 @@ class Game:
         self.won = False
         rng = random.Random()
         self.ghosts = [
-            Ghost(self.maze, name, start, dots, rng)
-            for name, start, dots in zip(config.GHOST_NAMES, self.maze.ghost_starts, config.GHOST_RELEASE_DOTS)
+            Ghost(self.maze, name, start, dots, personality(self.maze), rng)
+            for name, start, dots, personality in zip(
+                config.GHOST_NAMES, self.maze.ghost_starts, config.GHOST_RELEASE_DOTS, PERSONALITIES
+            )
         ]
         for ghost in self.ghosts:
             ghost.finder = self.finder
         self.ghost_view = GhostView(self.maze_view)
+        overlay_was_on = hasattr(self, "overlay") and self.overlay.visible
+        self.overlay = Overlay(self.maze_view)
+        self.overlay.visible = overlay_was_on  # a new game keeps the player's choice
         self.game_over = False
 
     def handle_events(self) -> None:
@@ -87,6 +95,8 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_m:
                     self.sounds.toggle_mute()
+                elif event.key == pygame.K_o:
+                    self.overlay.toggle()
                 elif event.key in FINDER_KEYS[: len(self.finders)]:
                     self.set_finder(self.finders[FINDER_KEYS.index(event.key)])
                 elif not self.started:
@@ -117,9 +127,10 @@ class Game:
             self.won = True
             self.sounds.play("win")
             return
-        pacman_tile = (round(self.pacman.x) % self.maze.width, round(self.pacman.y))
         for ghost in self.ghosts:
-            ghost.target = pacman_tile  # until US2.4, every ghost hunts Pac-Man's tile
+            # The personality says where to go; the search algorithm finds how.
+            wanted = ghost.personality.target(ghost, self.pacman, self.ghosts)
+            ghost.target = closest_walkable(self.maze, wanted)
             ghost.update(dt, self.score.dots_eaten)
         self.check_caught()
 
@@ -168,6 +179,7 @@ class Game:
             centre = self.maze_view.tile_centre(self.maze.fruit)
             self.screen.blit(self.fruit_image, self.fruit_image.get_rect(center=centre))
         self.pacman_view.draw(self.screen, self.pacman)
+        self.overlay.draw(self.screen, self.ghosts)
         self.ghost_view.draw(self.screen, self.ghosts)
         self.draw_panel()
         if self.won:
@@ -199,7 +211,7 @@ class Game:
         sprite = pygame.transform.scale(self.pacman_view.frames["right"][1], (size, size))
         self.screen.blit(sprite, sprite.get_rect(center=(centre_x, config.SCREEN_HEIGHT // 2)))
         y = 2 * config.SCREEN_HEIGHT // 3
-        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE", "1: DFS   2: BFS   3: A*"):
+        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE", "1: DFS   2: BFS   3: A*", "O: GHOST TARGETS"):
             image = self.font.render(text, True, config.TEXT_COLOUR)
             self.screen.blit(image, image.get_rect(midtop=(centre_x, y)))
             y += image.get_height() * 2

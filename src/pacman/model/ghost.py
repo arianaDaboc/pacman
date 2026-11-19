@@ -20,16 +20,17 @@ def _next_centre(pos: float, direction: int) -> float:
 class Ghost:
     """Moves from tile centre to tile centre and chooses a direction only at a centre."""
 
-    def __init__(self, maze: Maze, name: str, start: Tile, dots_to_leave: int, rng: random.Random) -> None:
+    def __init__(self, maze: Maze, name: str, start: Tile, dots_to_leave: int, personality, rng: random.Random) -> None:
         """Remember the maze and the start, then put the ghost at its start."""
         self.maze = maze
         self.name = name
+        self.personality = personality  # chooses the tile this ghost hunts (US2.4)
         self.start = start
         self.dots_to_leave = dots_to_leave
         self.rng = rng
         self.exit = maze.ghost_starts[0]  # the tile just outside the door, where Blinky starts
         self.finder = None  # the PathFinder chosen in the game (BFS by default)
-        self.target: Tile | None = None  # the tile the ghost hunts; Pac-Man's tile until US2.4
+        self.target: Tile | None = None  # the tile the ghost hunts, chosen by its personality
         self.path: list[Tile] = []  # the tiles still ahead on the current path (overlay of US2.6)
         self.path_target: Tile | None = None  # the target the current path was computed for
         self.expanded = 0  # tiles expanded by the last search

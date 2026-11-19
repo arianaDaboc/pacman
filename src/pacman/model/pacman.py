@@ -31,6 +31,14 @@ class PacMan:
         self.y = float(start[1])
         self.direction: tuple[int, int] | None = None
         self.wanted: tuple[int, int] | None = None
+        # The last direction Pac-Man moved in. It stays set when he stops at a wall,
+        # because Pinky and Inky aim in front of him even then.
+        self.facing: tuple[int, int] = config.RIGHT
+
+    @property
+    def tile(self) -> tuple[int, int]:
+        """The tile that contains Pac-Man's centre."""
+        return (round(self.x) % self.maze.width, round(self.y))
 
     def turn(self, name: str) -> None:
         """Remember the requested direction for the next tile centre."""
@@ -47,6 +55,7 @@ class PacMan:
                 self._choose_direction()
                 if self.direction is None:
                     return
+                self.facing = self.direction
 
             dx, dy = self.direction
             tx = _next_centre(self.x, dx)
