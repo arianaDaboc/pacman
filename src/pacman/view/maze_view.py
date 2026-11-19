@@ -10,9 +10,9 @@ class MazeView:
     """Draws one maze. Walls never change, so they are drawn once and reused."""
 
     def __init__(self, maze: Maze) -> None:
-        """Prepare the drawing; the maze is centred horizontally at the top of the screen."""
+        """Prepare the drawing; the maze is in the top-left corner, the control panel is on its right."""
         self.maze = maze
-        self.origin = ((config.SCREEN_WIDTH - maze.width * config.TILE_SIZE) // 2, 0)
+        self.origin = (0, 0)
         self.background = self._render_walls()
 
     def tile_centre(self, tile: Tile) -> tuple[int, int]:
