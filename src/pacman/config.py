@@ -3,14 +3,15 @@
 from pathlib import Path
 
 # --- Window ---
-SCREEN_WIDTH = 640
+SCREEN_WIDTH = 784  # the maze (504 px) on the left, the control panel (280 px) on the right
 SCREEN_HEIGHT = 720
 FPS = 60
 TITLE = "Pac-Man AI"
 
 # --- Layout ---
 TILE_SIZE = 18  # pixels per tile: a 28 x 36 map is 504 x 648 px
-HUD_HEIGHT = 72  # control panel under the maze: 648 + 72 = 720 px
+HUD_HEIGHT = 72  # score and lives under the maze: 648 + 72 = 720 px
+PANEL_WIDTH = 280  # control panel to the right of the maze
 
 # --- Files ---
 # This file is src/pacman/config.py, so parents[2] is the repository root.
@@ -119,3 +120,10 @@ GHOST_COLOURS = {  # the colours of the sprites, used to draw each ghost's targe
     "clyde": (255, 170, 40),
 }
 OVERLAY_WIDTH = 2  # line thickness in pixels
+
+# --- Control panel ---
+PANEL_FONT_SIZE = 8
+PANEL_MARGIN = 12  # space around the panel and between its buttons, in pixels
+PANEL_LINE_GAP = 6  # extra space between two lines of text
+BUTTON_HEIGHT = 28
+BUTTON_SELECTED_COLOUR = (255, 221, 0)  # background of the selected search algorithm
