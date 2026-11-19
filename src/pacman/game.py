@@ -7,6 +7,7 @@ import pygame
 
 from pacman import config
 from pacman.model.ghost import Ghost
+from pacman.model.ghost_state import GhostState, ModeTimer
 from pacman.model.maze import Maze
 from pacman.model.pacman import PacMan
 from pacman.model.personality import PERSONALITIES
@@ -72,6 +73,7 @@ class Game:
         self.lives = config.LIVES
         self.fruit_timer = 0.0  # seconds the fruit stays in the maze; 0 means no fruit
         self.won = False
+        self.mode_timer = ModeTimer()  # scatter/chase schedule and frightened time, for all the ghosts
         rng = random.Random()
         self.ghosts = [
             Ghost(self.maze, name, start, dots, personality(self.maze), rng)
@@ -127,18 +129,64 @@ class Game:
             self.won = True
             self.sounds.play("win")
             return
+        self.update_modes(dt)
         for ghost in self.ghosts:
+            ghost.target = self.target_of(ghost)
+            ghost.update(dt, self.score.dots_eaten, self.mode_timer.mode)
+        self.ghost_view.update(dt)
+        self.check_collisions()
+
+    def update_modes(self, dt: float) -> None:
+        """Advance the mode timer and apply what it says to the ghosts."""
+        was_frightened = self.mode_timer.frightened
+        if self.mode_timer.update(dt):
+            # Scatter <-> chase: the ghosts outside take the new mode and reverse at once.
+            for ghost in self.ghosts:
+                if ghost.state in (GhostState.SCATTER, GhostState.CHASE):
+                    ghost.set_state(self.mode_timer.mode)
+                    ghost.reverse()
+        if was_frightened and not self.mode_timer.frightened:
+            # The energizer wore off: back to the current mode, this time without reversing.
+            for ghost in self.ghosts:
+                if ghost.state is GhostState.FRIGHTENED:
+                    ghost.set_state(self.mode_timer.mode)
+
+    def frighten_ghosts(self) -> None:
+        """Pac-Man ate an energizer: the ghosts that are hunting turn blue and reverse."""
+        self.mode_timer.start_fright()  # a second energizer starts the 6 seconds again
+        for ghost in self.ghosts:
+            if ghost.state in (GhostState.SCATTER, GhostState.CHASE):
+                ghost.set_state(GhostState.FRIGHTENED)
+                ghost.reverse()
+
+    def target_of(self, ghost: Ghost):
+        """Return the tile the ghost is heading to in its current state, or None if it has no target."""
+        if ghost.state is GhostState.CHASE:
             # The personality says where to go; the search algorithm finds how.
             wanted = ghost.personality.target(ghost, self.pacman, self.ghosts)
-            ghost.target = closest_walkable(self.maze, wanted)
-            ghost.update(dt, self.score.dots_eaten)
-        self.check_caught()
+        elif ghost.state is GhostState.SCATTER:
+            wanted = ghost.personality.corner
+        elif ghost.state is GhostState.EATEN:
+            return ghost.home  # inside the house, so it is not moved to a corridor tile
+        else:
+            return None  # in the house, or frightened (random moves)
+        return closest_walkable(self.maze, wanted)
 
-    def check_caught(self) -> None:
-        """A ghost on Pac-Man's tile catches him: -500 points, one life less, everybody back to the start."""
-        pacman_tile = (round(self.pacman.x) % self.maze.width, round(self.pacman.y))
-        if not any(ghost.tile == pacman_tile for ghost in self.ghosts):
-            return
+    def check_collisions(self) -> None:
+        """A ghost on Pac-Man's tile: Pac-Man eats it if it is frightened, otherwise it catches him."""
+        for ghost in self.ghosts:
+            if ghost.tile != self.pacman.tile or ghost.state is GhostState.EATEN:
+                continue  # the eyes of an eaten ghost are harmless
+            if ghost.state is GhostState.FRIGHTENED:
+                self.score.eat_ghost()  # 200, 400, 800, 1600 with the same energizer
+                ghost.set_state(GhostState.EATEN)
+                self.sounds.play("fruit")
+            else:
+                self.lose_life()
+                return
+
+    def lose_life(self) -> None:
+        """Pac-Man is caught: -500 points, one life less, everybody back to the start."""
         self.score.caught()
         self.lives -= 1
         if self.lives == 0:
@@ -146,8 +194,9 @@ class Game:
             self.sounds.play("lose")
             return
         self.pacman = PacMan(self.maze, self.maze.pacman_start)  # the dots already eaten stay eaten
+        self.mode_timer.reset()
         for ghost in self.ghosts:
-            ghost.reset()
+            ghost.reset(self.mode_timer.mode)
 
     def eat(self) -> None:
         """Eat what is on Pac-Man's tile: a dot, an energizer or the fruit."""
@@ -162,6 +211,7 @@ class Game:
             self.maze.energizers.remove(tile)
             self.score.eat_energizer()
             self.sounds.play("energizer")
+            self.frighten_ghosts()
         if self.fruit_timer > 0 and tile == self.maze.fruit:
             self.score.eat_fruit()
             self.sounds.play("fruit")
@@ -180,7 +230,7 @@ class Game:
             self.screen.blit(self.fruit_image, self.fruit_image.get_rect(center=centre))
         self.pacman_view.draw(self.screen, self.pacman)
         self.overlay.draw(self.screen, self.ghosts)
-        self.ghost_view.draw(self.screen, self.ghosts)
+        self.ghost_view.draw(self.screen, self.ghosts, self.mode_timer.flashing)
         self.draw_panel()
         if self.won:
             self.draw_end_screen("YOU WIN!")

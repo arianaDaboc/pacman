@@ -1,10 +1,16 @@
-"""A ghost: waits in the house, leaves it, then wanders the maze at random. No pygame here."""
+"""A ghost: its position, its state and how it moves. No pygame here.
+
+The ghost decides only at the centre of a tile. What it does there depends on its state:
+in the house it waits or walks out, in scatter and chase it follows a path to its target,
+frightened it picks a random exit, and eaten it follows a path back to the house.
+"""
 
 import math
 import random
 from collections import deque
 
 from pacman import config
+from pacman.model.ghost_state import GhostState
 from pacman.model.maze import Maze, Tile
 
 
@@ -21,7 +27,6 @@ class Ghost:
     """Moves from tile centre to tile centre and chooses a direction only at a centre."""
 
     def __init__(self, maze: Maze, name: str, start: Tile, dots_to_leave: int, personality, rng: random.Random) -> None:
-        """Remember the maze and the start, then put the ghost at its start."""
         self.maze = maze
         self.name = name
         self.personality = personality  # chooses the tile this ghost hunts (US2.4)
@@ -29,19 +34,25 @@ class Ghost:
         self.dots_to_leave = dots_to_leave
         self.rng = rng
         self.exit = maze.ghost_starts[0]  # the tile just outside the door, where Blinky starts
+        # Where the eyes of an eaten ghost go: Pinky's start, in the middle of the house.
+        self.home = maze.ghost_starts[1] if maze.ghost_starts[1] in maze.house else min(maze.house)
         self.finder = None  # the PathFinder chosen in the game (BFS by default)
-        self.target: Tile | None = None  # the tile the ghost hunts, chosen by its personality
+        self.target: Tile | None = None  # the tile the ghost is heading to; None while it has none
         self.path: list[Tile] = []  # the tiles still ahead on the current path (overlay of US2.6)
         self.path_target: Tile | None = None  # the target the current path was computed for
+        self.path_length = 0  # length of the last path found
         self.expanded = 0  # tiles expanded by the last search
-        self.reset()
+        self.reset(GhostState.SCATTER)
 
-    def reset(self) -> None:
-        """Go back to the start tile, as at the beginning of a life."""
+    def reset(self, mode: GhostState) -> None:
+        """Go back to the start tile, as at the beginning of a life.
+
+        `mode` is the current scatter/chase mode: Blinky, who starts outside the house, takes it at once.
+        """
         self.x = float(self.start[0])
         self.y = float(self.start[1])
         self.direction: tuple[int, int] | None = None
-        self.in_house = self.start in self.maze.house
+        self.state = GhostState.IN_HOUSE if self.start in self.maze.house else mode
         self.path = []
         self.path_target = None
 
@@ -50,14 +61,43 @@ class Ghost:
         """The tile that contains the ghost's centre."""
         return (round(self.x) % self.maze.width, round(self.y))
 
-    def update(self, dt: float, dots_eaten: int) -> None:
-        """Move for dt seconds. A ghost in the house waits until Pac-Man has eaten enough dots."""
+    @property
+    def in_house(self) -> bool:
+        """True while the ghost waits in the house or walks out of it."""
+        return self.state is GhostState.IN_HOUSE
+
+    @property
+    def speed(self) -> float:
+        """Tiles per second: a frightened ghost moves at half speed."""
+        if self.state is GhostState.FRIGHTENED:
+            return config.GHOST_SPEED * config.FRIGHTENED_SPEED
+        return config.GHOST_SPEED
+
+    def set_state(self, state: GhostState) -> None:
+        """Change the state. The old path belongs to the old state, so it is dropped."""
+        self.state = state
+        self.path = []
+        self.path_target = None
+
+    def reverse(self) -> None:
+        """Turn around at once. Only a change of state may do this; a ghost never reverses on its own."""
+        if self.direction is not None:
+            self.direction = (-self.direction[0], -self.direction[1])
+        self.path = []
+        self.path_target = None
+
+    def update(self, dt: float, dots_eaten: int, mode: GhostState) -> None:
+        """Move for dt seconds.
+
+        A ghost in the house waits until Pac-Man has eaten enough dots. `mode` is the
+        current scatter/chase mode, which the ghost takes when it steps out of the house.
+        """
         if self.in_house and dots_eaten < self.dots_to_leave:
             return
-        remaining = config.GHOST_SPEED * dt
+        remaining = self.speed * dt
         while remaining > 1e-9:
             if self._at_centre():
-                self._choose_direction()
+                self._choose_direction(mode)
                 if self.direction is None:
                     return
             dx, dy = self.direction
@@ -74,26 +114,32 @@ class Ghost:
             remaining -= step
 
     def _at_centre(self) -> bool:
-        """True when the ghost is exactly in the middle of a tile."""
         return abs(self.x - round(self.x)) < 1e-9 and abs(self.y - round(self.y)) < 1e-9
 
-    def _choose_direction(self) -> None:
-        """Leave the house along a shortest path, then pick a random exit, never reversing."""
+    def _choose_direction(self, mode: GhostState) -> None:
+        """At a tile centre: decide where to go next, depending on the state."""
         here = self.tile
-        if self.in_house:
+        if self.state is GhostState.EATEN and here == self.home:
+            self.set_state(GhostState.IN_HOUSE)  # the eyes are home: the ghost revives and walks out again
+        if self.state is GhostState.IN_HOUSE:
             if here == self.exit:
-                self.in_house = False
+                self.set_state(mode)  # outside: join the others in the current mode
             else:
                 step = self._first_step_to(self.exit)
                 self.direction = (step[0] - here[0], step[1] - here[1]) if step else None
                 return
-        if self.finder is not None and self.target is not None:
+        # Scatter, chase and eaten follow a path to the target; frightened has no target.
+        if self.finder is not None and self.target is not None and self.state is not GhostState.FRIGHTENED:
             if self._follow_path(here):
                 return
+        self._random_exit(here)
+
+    def _random_exit(self, here: Tile) -> None:
+        """Pick one of the free directions at random, never the one the ghost came from."""
         options = []
         for d in config.NEIGHBOUR_ORDER:
             n = ((here[0] + d[0]) % self.maze.width, here[1] + d[1])
-            # Outside, a ghost stays out of the house (until US2.5 sends the eaten ones back).
+            # Outside, a ghost stays out of the house; only the eyes go back in, along their path.
             if self.maze.is_walkable(n, config.GHOST) and n not in self.maze.house and n not in self.maze.doors:
                 options.append(d)
         if self.direction is not None:
@@ -133,6 +179,7 @@ class Ghost:
             if self.direction is not None:  # the tile behind: a ghost never reverses on its own
                 banned.add(((here[0] - self.direction[0]) % self.maze.width, here[1] - self.direction[1]))
             self.path, self.expanded = self.finder.find_path(self.maze, here, self.target, banned)
+            self.path_length = len(self.path)
             self.path_target = self.target
         if not self.path:
             return False

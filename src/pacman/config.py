@@ -89,6 +89,23 @@ GHOST_NAMES = ("blinky", "pinky", "inky", "clyde")
 GHOST_RELEASE_DOTS = (0, 0, 30, 60)  # Blinky starts outside; Pinky, Inky, Clyde leave after 0, 30, 60 dots
 GHOST_SPRITES = {"blinky": "red", "pinky": "pink", "inky": "green", "clyde": "orange"}
 
+# --- Ghost states (section 3.5, Tables 6 and 8) ---
+# Scatter and chase alternate on this schedule, as (mode, seconds). After the last entry: chase for ever.
+MODE_SCHEDULE = (
+    ("scatter", 7.0),
+    ("chase", 20.0),
+    ("scatter", 7.0),
+    ("chase", 20.0),
+    ("scatter", 5.0),
+    ("chase", 20.0),
+    ("scatter", 5.0),
+)
+FRIGHTENED_SECONDS = 6.0  # how long an energizer works
+FLASH_SECONDS = 2.0  # the ghosts flash in the last seconds of the frightened time
+FRIGHTENED_SPEED = 0.5  # a frightened ghost moves at this fraction of GHOST_SPEED
+FLASH_FPS = 6  # colour changes per second while flashing
+FLASH_BRIGHTEN = (170, 170, 170)  # added to the scared sprite's colours to get the flash sprite
+
 # --- Ghost personalities (Table 8) ---
 PINKY_AHEAD = 4  # Pinky hunts this many tiles in front of Pac-Man
 INKY_AHEAD = 2  # Inky's pivot is this many tiles in front of Pac-Man
