@@ -16,6 +16,7 @@ from pacman.search.astar import AStar
 from pacman.search.bfs import BFS
 from pacman.search.dfs import DFS
 from pacman.search.path_finder import closest_walkable
+from pacman.view.control_panel import ControlPanel
 from pacman.view.ghost_view import GhostView
 from pacman.view.maze_view import MazeView
 from pacman.view.overlay import Overlay
@@ -59,6 +60,7 @@ class Game:
         self.sounds = Sounds()
         self.finders = [DFS(), BFS(), AStar()]  # the search algorithms the ghosts can use
         self.finder = self.finders[1]  # BFS until the player chooses another one
+        self.panel = ControlPanel(self.finders)
         self.started = False  # the start screen is shown until Enter or Space is pressed
         self.running = True
         self.new_game(maze)
@@ -94,6 +96,10 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                clicked = self.panel.handle(event)
+                if clicked is not None:
+                    self.set_finder(clicked)
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_m:
                     self.sounds.toggle_mute()
@@ -225,13 +231,14 @@ class Game:
             pygame.display.flip()
             return
         self.maze_view.draw(self.screen)
+        self.overlay.draw(self.screen, self.ghosts)  # under the characters, so they stay visible
         if self.fruit_timer > 0 and self.maze.fruit is not None:
             centre = self.maze_view.tile_centre(self.maze.fruit)
             self.screen.blit(self.fruit_image, self.fruit_image.get_rect(center=centre))
         self.pacman_view.draw(self.screen, self.pacman)
-        self.overlay.draw(self.screen, self.ghosts)
         self.ghost_view.draw(self.screen, self.ghosts, self.mode_timer.flashing)
         self.draw_panel()
+        self.panel.draw(self.screen, self.ghosts, self.finder, self.overlay.visible)
         if self.won:
             self.draw_end_screen("YOU WIN!")
         elif self.game_over:
@@ -248,9 +255,9 @@ class Game:
         lives = self.font.render(f"LIVES {self.lives}", True, config.TEXT_COLOUR)
         self.screen.blit(score, (left, y))
         self.screen.blit(lives, (right - lives.get_width(), y))
-        middle = self.finder.name + (" MUTED" if self.sounds.muted else "")
-        image = self.font.render(middle, True, config.TEXT_COLOUR)
-        self.screen.blit(image, image.get_rect(midtop=((left + right) // 2, y)))
+        if self.sounds.muted:
+            muted = self.font.render("MUTED", True, config.TEXT_COLOUR)
+            self.screen.blit(muted, muted.get_rect(midtop=((left + right) // 2, y)))
 
     def draw_start_screen(self) -> None:
         """The title of the game, a big Pac-Man and the keys."""
@@ -261,7 +268,7 @@ class Game:
         sprite = pygame.transform.scale(self.pacman_view.frames["right"][1], (size, size))
         self.screen.blit(sprite, sprite.get_rect(center=(centre_x, config.SCREEN_HEIGHT // 2)))
         y = 2 * config.SCREEN_HEIGHT // 3
-        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE", "1: DFS   2: BFS   3: A*", "O: GHOST TARGETS"):
+        for text in ("PRESS ENTER TO START", "ARROWS: MOVE   M: MUTE", "1 2 3: GHOST SEARCH", "O: GHOST PATHS"):
             image = self.font.render(text, True, config.TEXT_COLOUR)
             self.screen.blit(image, image.get_rect(midtop=(centre_x, y)))
             y += image.get_height() * 2
