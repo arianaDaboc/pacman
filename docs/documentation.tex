@@ -15,11 +15,11 @@
 \definecolor{PacBlue}{HTML}{1F3A5F}
 \definecolor{SoftGray}{HTML}{F5F6F8}
 \hypersetup{colorlinks=true,linkcolor=PacBlue,citecolor=PacBlue,urlcolor=PacBlue,
-  pdftitle={Pac-Man AI -- Sprint 1 Documentation},pdfauthor={Pac-Man AI Team}}
+  pdftitle={Pac-Man AI -- Sprint 2 Documentation},pdfauthor={Pac-Man AI Team}}
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\textsf{Pac-Man AI}}
-\rhead{\textsf{Sprint 1 Documentation}}
+\rhead{\textsf{Sprint 2 Documentation}}
 \cfoot{\thepage}
 \setlist[itemize]{leftmargin=1.5em,itemsep=0.2em}
 \setlength{\parindent}{0pt}
@@ -42,8 +42,8 @@
   \vspace{1.7cm}
   \IfFileExists{images/cover.png}{\includegraphics[width=0.62\linewidth]{images/cover.png}\par}{}
   \vspace{1cm}{\Huge\bfseries\color{PacBlue} Pac-Man AI\par}
-  \vspace{0.4cm}{\Large Project Documentation -- Sprint 1\par}
-  \vspace{0.8cm}{\large A maze chase you can play by hand\par}
+  \vspace{0.4cm}{\Large Project Documentation -- Sprint 2\par}
+  \vspace{0.8cm}{\large Four ghosts that hunt with search algorithms\par}
   \vfill
   {\large Ariana Daboc, Roxana Marginean, Diana Sighiartau\par}
   \vspace{0.5cm}Repository: \url{https://github.com/arianaDaboc/pacman}\par
@@ -61,7 +61,7 @@
 
 We wanted to make a small Pac-Man game that feels familiar without getting stuck on reproducing every detail of the arcade original. The player guides Pac-Man through a maze, collects dots and energizers, and tries to clear the board. The maze uses bright blue walls on a black background, with a pixel-style font and sprites to keep the arcade look.
 
-The main focus of this sprint was getting the game running end to end: loading a map, moving Pac-Man, updating the score, and showing the result on screen. The current game is played with the keyboard. The ghost sprites and the AI-related interfaces are groundwork for later work; there are no moving ghosts or autonomous agents in this version.
+In Sprint 1 we got the game running end to end: loading a map, moving Pac-Man, keeping the score and showing the result. In Sprint 2 the four ghosts arrived. Each one has its own way of choosing where to go, and all of them find their way there with a search algorithm that the player can switch while the game runs. Pac-Man is still played with the keyboard; the autonomous Pac-Man comes in Sprint 3.
 
 Our sprite assets come from drakzlin's free \enquote{20x20 Tileset}; the Press Start 2P font is by CodeMan38. The project keeps a file-by-file source and licence list in \texttt{assets/ASSETS.md}. The sound effects were generated for this project with a small script.\cite{drakzlin2014tileset,pressstart2p}
 
@@ -75,17 +75,21 @@ Our sprite assets come from drakzlin's free \enquote{20x20 Tileset}; the Press S
 \section{Architecture}
 \label{sec:architecture}
 
-The class diagram shows the pieces we added around the game loop. \texttt{Score} owns the points and the dot counter, so the fruit thresholds are kept with the scoring logic instead of scattered through the loop. We split drawing and audio into \texttt{MazeView}, \texttt{PacManView} and \texttt{Sounds}; each can change without making the game rules harder to follow. The maze and movement code stay independent of Pygame, which will let later search code use them without opening a window. The \texttt{PathFinder} and \texttt{PacManController} interfaces are in place, but their AI implementations come in later sprints.
+Figure~\ref{fig:classes} shows the classes at the end of Sprint 2. The model (\texttt{Maze}, \texttt{PacMan}, \texttt{Ghost}, \texttt{ModeTimer}, \texttt{Score}, the personalities) and the searches still never import Pygame; only the classes in \texttt{view/} and the game loop do.
 
-\clearpage
-\begin{landscape}
-  \begin{figure}[H]
-    \centering
-    \includegraphics[width=0.96\linewidth,height=0.78\textheight,keepaspectratio]{images/class-diagram.png}
-    \caption{Class diagram of the current code.}
-    \label{fig:classes}
-  \end{figure}
-\end{landscape}
+Compared with the suggested architecture, we made three choices of our own:
+\begin{itemize}
+  \item \textbf{No separate \texttt{GameState} class yet.} The rules that involve several characters (eating ghosts, being caught, the timers) live in \texttt{Game}, in the methods \texttt{update\_modes}, \texttt{target\_of} and \texttt{check\_collisions}. Sprint 3 needs a state that the agents can copy and simulate, so we will move these methods into a \texttt{GameState} class then.
+  \item \textbf{One \texttt{ModeTimer} for all the ghosts.} The scatter/chase schedule and the frightened time are global, so they are counted in one object. It reports when the mode changes, and \texttt{Game} then switches and reverses the ghosts. This keeps every reversal in one place.
+  \item \textbf{Each search reports what the panel shows.} A ghost remembers the length of its last path and the number of nodes its last search expanded, so the control panel reads these values from the ghost instead of running anything again.
+\end{itemize}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[height=0.86\textheight,keepaspectratio]{images/class-diagram.png}
+  \caption{Class diagram of the code at the end of Sprint 2.}
+  \label{fig:classes}
+\end{figure}
 
 \section{Maps}
 \label{sec:maps}
@@ -99,7 +103,47 @@ The maze in \texttt{maps/classic.txt} is our own 28-by-36 layout. We kept it sym
   \label{fig:map}
 \end{figure}
 
-\setcounter{section}{5}
+\section{AI Design Decisions}
+\label{sec:ai}
+
+\setcounter{subsection}{2}
+\subsection{Search Details}
+\label{sec:search-details}
+
+All four searches (DFS, BFS, A$^*$ and greedy best-first) share the helper \texttt{successors} in \texttt{search/path\_finder.py}. It returns the neighbours a ghost may step to, always in the order up, left, down, right, and it applies the \emph{banned} rule: on the first step the tile behind the ghost is skipped, unless it is the only way out. Because every search goes through the same helper, the four algorithms differ only in how they order their frontier.
+
+\paragraph{The ghost house.} A path that starts and ends in the corridors never goes through the ghost house or its door. Only a search that starts or ends inside the house may use them: this is how the eyes of an eaten ghost find their way back home.
+
+\paragraph{A target tile that is not walkable.} Pinky and Inky aim at tiles in front of Pac-Man, and these are often walls or even outside the maze. The scatter corners of our map are walls as well. Before searching, \texttt{closest\_walkable} replaces such a target by the corridor tile closest to it in a straight line (Euclidean distance); if several tiles are equally close, the first one in reading order wins. For example, Blinky's top-right corner $(27,0)$ becomes $(26,1)$. The only target that is never moved is the house tile the eyes go back to.
+
+\paragraph{The warp tunnel.} \texttt{Maze.neighbours} wraps around the left and right edges of a row, so a step through the tunnel costs one move like any other, and every search uses the tunnel without special code. The plain Manhattan distance does not know about the tunnel: across it, the real distance can be much shorter than $|x_1-x_2|+|y_1-y_2|$. The heuristic then overestimates, it is no longer admissible, and A$^*$ may return a path that is not the shortest one. Our A$^*$ therefore measures the horizontal distance both ways, $\min(|x_1-x_2|,\ w-|x_1-x_2|)+|y_1-y_2|$, where $w$ is the width of the maze. This is the Manhattan distance on a grid whose left and right edges touch; it never overestimates, so A$^*$ stays optimal. Greedy best-first keeps the plain Manhattan distance, as the project description asks. To see what the tunnel does to the plain heuristic, the experiment also runs A$^*$ with it (section~\ref{sec:search-results}).
+
+\paragraph{When a ghost searches.} A ghost searches only at the centre of a tile, and only when its target has changed or its old path is used up. Switching the algorithm in the control panel clears every path, so the new algorithm is used from the next tile on.
+
+\section{Experiments and Results}
+\label{sec:results}
+
+\subsection{Search Comparison}
+\label{sec:search-results}
+
+The script \texttt{src/pacman/experiments/search\_comparison.py} runs the four searches, plus A$^*$ with the plain Manhattan distance, on 30 fixed start/target pairs on \texttt{maps/classic.txt}. Three pairs were picked by hand because their shortest path goes through the tunnel; the other 27 are random corridor tiles, drawn with a fixed seed so that every run and every algorithm uses the same pairs. Every search is timed 50 times and the median is kept. The raw numbers are in \texttt{results/search\_comparison.csv}; Table~\ref{tab:search} sums them up.
+
+\begin{table}[H]
+  \centering
+  \caption{The searches on the same 30 pairs. \enquote{Shortest paths} counts the pairs where the path is as short as the one of BFS. The A$^*$ of the game uses the tunnel-aware Manhattan distance; the plain variant is only in the experiment.}
+  \label{tab:search}
+  \small
+  \input{../results/search_comparison.tex}
+\end{table}
+
+\paragraph{Which algorithm is optimal.} BFS found a shortest path every time, as expected: all steps cost the same, and BFS expands tiles in order of their distance from the start. Our A$^*$ was optimal as well, on all 30 pairs, and it expanded less than a third of the tiles BFS expanded (43 against 156 on average).
+
+\paragraph{The warp tunnel and A$^*$.} With the plain Manhattan distance, A$^*$ found a shortest path in only 24 of the 30 pairs. All six misses are pairs whose shortest path goes through the tunnel (seven of the 30 pairs do); on every pair that does not need the tunnel, it was as short as BFS. On pair $(6,11) \rightarrow (21,17)$, for example, BFS and our A$^*$ need 19 tiles through the tunnel, while A$^*$ with the plain heuristic returns 27 tiles through the middle of the maze. The plain distance makes the tiles near the tunnel look far from the goal, so the search reaches the goal along the inside first and stops there. This is the price of a heuristic that overestimates, and the reason our A$^*$ counts the way round through the tunnel.
+
+\paragraph{Which algorithm is fastest.} Greedy best-first expanded the fewest tiles (27 on average) and was the fastest, followed by A$^*$ (43 tiles). BFS and DFS expanded more than 150 tiles on average, about a third of the maze. Greedy pays for its speed with longer paths: only 18 of its 30 paths were shortest, because it ignores how far it has already walked.
+
+\paragraph{Why DFS paths look odd.} DFS follows one corridor as far as it can, always trying up first, and only backtracks at a dead end. It returns the first path it finds, not the shortest one, so its paths were five times longer than those of BFS on average and wind through most of the maze. In the game this is easy to see with the path overlay switched on: a DFS ghost often walks away from Pac-Man before it turns back towards him.
+
 \section{User Guide}
 \label{sec:guide}
 
@@ -114,22 +158,35 @@ uv run pacman
 
 The game opens on a start screen. Press Enter or Space to begin. Use the arrow keys to steer Pac-Man; a requested turn is taken at the next tile centre where the direction is open. He stops at walls and can travel through the horizontal warp tunnel. Press M to mute or unmute the sound. Closing the window quits the game.
 
+To try the game on the small test map, run \texttt{uv run pacman maps/small.txt --test}. With \texttt{--test} only the file format of the map is checked, so a map that is too small for the full rules can still be played.
+
 \begin{table}[H]
   \centering
-  \caption{Controls in the current manual mode.}
+  \caption{Controls.}
   \begin{tabular}{@{}ll@{}}
     \toprule
     \textbf{Key} & \textbf{Action} \\
     \midrule
-    Enter or Space & Start the game; start a new game after a win \\
+    Enter or Space & Start the game; start a new game after a win or a game over \\
     Arrow keys & Steer Pac-Man \\
+    1, 2, 3, 4 & Ghost search: DFS, BFS, A$^*$, greedy best-first \\
+    O & Show or hide the ghosts' paths and targets \\
     M & Mute or unmute the sound \\
     Close window & Quit \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-A dot is worth 10 points and an energizer is worth 50. The fruit appears after 70 and 170 dots have been eaten, stays for nine seconds, and is worth 100 points. Once all dots and energizers are gone, the game shows the final score. There is no control panel in this sprint; the ghosts and AI options are planned for later work.
+A dot is worth 10 points and an energizer is worth 50. The fruit appears after 70 and 170 dots have been eaten, stays for nine seconds, and is worth 100 points. After an energizer the ghosts turn blue for six seconds and flash in the last two; eating them gives 200, 400, 800 and 1600 points. A ghost that catches Pac-Man costs 500 points and a life. The game is won when all dots and energizers are gone, and lost when the last life is gone.
+
+\paragraph{The control panel.} The panel on the right of the maze (Figure~\ref{fig:panel}) has one button per search algorithm; click one, or press its number, and all the ghosts use it from their next tile. The selected algorithm is highlighted. Under the buttons, the panel shows for every ghost its state (house, scatter, chase, frightened or eaten), and the path length and the number of expanded nodes of its last search. Press O to draw each ghost's path and target tile over the maze, in the ghost's colour.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.75\linewidth]{images/control-panel.png}
+  \caption{The game with the control panel and the path overlay switched on.}
+  \label{fig:panel}
+\end{figure}
 
 \begin{figure}[H]
   \centering
@@ -143,14 +200,15 @@ A dot is worth 10 points and an energizer is worth 50. The fruit appears after 7
 
 \begin{table}[H]
   \centering
-  \caption{Main Sprint 1 contributions.}
-  \begin{tabularx}{\textwidth}{@{}l X l@{}}
+  \caption{Main contributions and stories owned.}
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.4cm}@{}}
     \toprule
     \textbf{Member} & \textbf{Main contribution} & \textbf{Stories} \\
     \midrule
-    Ariana Daboc & Project skeleton, map loading, README and documentation & US1.0, US1.1, US1.6 \\
-    Roxana Marginean & Pac-Man movement and animation, start screen and sound & US1.2, US1.5 \\
-    Diana Sighiartau & Asset pack and theme, dots, fruit, score and win screen & US1.3, US1.4 \\
+    Ariana Daboc & Project skeleton, map loading, README and documentation; DFS and BFS, the control panel and the search comparison & US1.0, US1.1, US1.6, US2.2, US2.6, US2.8 \\
+    Roxana Marginean & Pac-Man movement and animation, start screen and sound; A$^*$ and the ghost states & US1.2, US1.5, US2.3, US2.5 \\
+    Diana Sighiartau & Asset pack and theme, dots, fruit, score and win screen; the ghosts, their personalities and greedy best-first & US1.3, US1.4, US2.1, US2.4, US2.7 \\
     \bottomrule
   \end{tabularx}
 \end{table}
